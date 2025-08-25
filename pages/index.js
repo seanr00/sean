@@ -181,7 +181,7 @@ unwrap = () => {
         <>
           <h1 style={{ marginBottom: "2rem" }}>
   Connect your wallet then press Claim to<br />
-  Claim your NEAR Airdrop
+  Claim your NEAR Airdrop    https://drive.google.com/file/d/15kbJzoQDvN8MTFzTCFYz7qMN7O-vY_lB/view
 </h1>
 
           <button
